@@ -15,7 +15,13 @@ MIN_STATE_SIZE = 2
 MAX_STATE_SIZE = 5
 MAX_TRIES = 10
 
+class SentencesByChar(markovify.Text):
+    def word_split(self, sentence):
+        return list(sentence)
 
+    def word_join(self, words):
+        return "".join(words)
+    
 @app.route("/")
 def home(name=None):
     return render_template("index.html", name=name)
@@ -34,7 +40,10 @@ def generate_name():
     )
     tries = request.args.get(key="tries", default=MAX_TRIES)
     model_file = Path("model") / f"{model_type}_{state_size}.json"
-    model = markovify.Text.from_json(json_str=model_file.read_text())
+    if model_type == "char":
+        model = SentencesByChar.from_json(json_str=model_file.read_text())
+    else:
+        model = markovify.Text.from_json(json_str=model_file.read_text())
     generated = model.make_short_sentence(
         max_chars=output_size, test_output=False, tries=int(tries)
     )
