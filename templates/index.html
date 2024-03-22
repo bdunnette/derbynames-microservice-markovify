@@ -1,0 +1,28 @@
+<!doctype html>
+<head>
+<title>Hello from Flask</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+
+<body>
+<h1>Generating Name:</h1>
+<script>
+    $.getJSON( "/name", function( data ) {
+        var items = [];
+        $.each( data, function( key, val ) {
+            console.log(key + ": " + val);
+          items.push( "<li id='" + key + "'><strong>" + key + ":</strong> " + val + "</li>" );
+        });
+
+        $( "<ul/>", {
+          "class": "my-new-list",
+          html: items.join( "" )
+        }).appendTo( "body" );
+      });
+</script>
+<p>Reload the page for a new name.</p>
+<p>To request a name as JSON, add <code>/name</code> to the url.</p>
+<p>You can also specify the parameters listed below as part of the url - for example:
+<code><a href="/name?max_length=10&temperature=0.9">/name?max_length=10&temperature=0.9</a></code></p>
+<p>To generate a name from a specific "prompt", add <code>/name?prompt=</code> to the url - for instance: <code><a href="/name?prompt=Star">/name?prompt=Star</a></code></p>
+</body>
