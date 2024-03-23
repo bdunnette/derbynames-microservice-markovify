@@ -22,7 +22,7 @@ class SentencesByChar(markovify.Text):
 
     def word_join(self, words):
         return "".join(words)
-    
+
 @app.route("/")
 def home(name=None):
     return render_template("index.html", name=name)
@@ -42,6 +42,9 @@ def generate_name():
     tries = request.args.get(key="tries", default=MAX_TRIES)
     prompt = request.args.get(key="prompt", default=None)
     strip_periods = request.args.get(key="strip_periods", default=STRIP_PERIODS)
+    strip_exclamation = request.args.get(
+        key="strip_exclamation", default=random.choice([True, False])
+    )
     model_file = Path("model") / f"{model_type}_{state_size}.json"
     if model_type == "char":
         model = SentencesByChar.from_json(json_str=model_file.read_text())
@@ -65,6 +68,8 @@ def generate_name():
             )
     if strip_periods:
         generated = generated.rstrip(".")
+    if strip_exclamation:
+        generated = generated.rstrip("!")
     app.logger.info(msg=generated)
     return jsonify(
         {
