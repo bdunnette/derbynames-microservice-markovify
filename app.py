@@ -14,6 +14,7 @@ MAX_LENGTH = 50
 MIN_STATE_SIZE = 2
 MAX_STATE_SIZE = 5
 MAX_TRIES = 10
+STRIP_PERIODS = True
 
 class SentencesByChar(markovify.Text):
     def word_split(self, sentence):
@@ -39,18 +40,31 @@ def generate_name():
         key="model_type", default=random.choice(seq=["word", "char"])
     )
     tries = request.args.get(key="tries", default=MAX_TRIES)
+    prompt = request.args.get(key="prompt", default=None)
+    strip_periods = request.args.get(key="strip_periods", default=STRIP_PERIODS)
     model_file = Path("model") / f"{model_type}_{state_size}.json"
     if model_type == "char":
         model = SentencesByChar.from_json(json_str=model_file.read_text())
     else:
         model = markovify.Text.from_json(json_str=model_file.read_text())
-    generated = model.make_short_sentence(
-        max_chars=output_size, test_output=False, tries=int(tries)
-    )
-    while generated is None:
+    if prompt:
+        generated = model.make_sentence_with_start(
+            beginning=prompt, max_chars=output_size, test_output=False, strict=False
+        )
+        while generated is None:
+            generated = model.make_sentence_with_start(
+                beginning=prompt, max_chars=output_size, test_output=False, strict=False
+            )
+    else:
         generated = model.make_short_sentence(
             max_chars=output_size, test_output=False, tries=int(tries)
         )
+        while generated is None:
+            generated = model.make_short_sentence(
+                max_chars=output_size, test_output=False, tries=int(tries)
+            )
+    if strip_periods:
+        generated = generated.rstrip(".")
     app.logger.info(msg=generated)
     return jsonify(
         {
@@ -60,6 +74,7 @@ def generate_name():
             "model_type": model_type,
             "tries": tries,
             # For compatibility with django-docker
-            "temperature":0
+            "temperature":0,
+            "prompt":prompt,
         }
     )
