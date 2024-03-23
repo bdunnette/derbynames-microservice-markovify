@@ -59,5 +59,7 @@ def generate_name():
             "output_size": output_size,
             "model_type": model_type,
             "tries": tries,
+            # For compatibility with django-docker
+            "temperature":0
         }
     )
