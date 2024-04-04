@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-LABEL org.opencontainers.image.description Microservice to generate amusing (?) derby names using markovify.
+LABEL org.opencontainers.image.description derbynames-microservice-markovify
 
 FROM python:3.11-slim AS base
 
