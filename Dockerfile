@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1
-LABEL org.opencontainers.image.description derbynames-microservice-markovify
 
 FROM python:3.11-slim AS base
 
+LABEL org.opencontainers.image.description="A microservice to generate amusing (?) derby names using markovify."
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 FROM base AS python-deps
+
 
 # Install pipenv and compilation dependencies
 RUN pip install -U pipenv
