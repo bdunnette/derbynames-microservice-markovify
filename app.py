@@ -1,5 +1,6 @@
 import random
 from pathlib import Path
+import bz2
 
 import markovify
 from flask import Flask, jsonify, render_template, request
@@ -16,12 +17,14 @@ MAX_STATE_SIZE = 5
 MAX_TRIES = 10
 STRIP_PERIODS = True
 
+
 class SentencesByChar(markovify.Text):
     def word_split(self, sentence):
         return list(sentence)
 
     def word_join(self, words):
         return "".join(words)
+
 
 @app.route("/")
 def home(name=None):
@@ -45,11 +48,11 @@ def generate_name():
     strip_exclamation = request.args.get(
         key="strip_exclamation", default=random.choice([True, False])
     )
-    model_file = Path("model") / f"{model_type}_{state_size}.json"
+    model_file = Path("model") / f"{model_type}_{state_size}.bz2"
     if model_type == "char":
-        model = SentencesByChar.from_json(json_str=model_file.read_text())
+        model = SentencesByChar.from_json(json_str=bz2.open(model_file, "rt").read())
     else:
-        model = markovify.Text.from_json(json_str=model_file.read_text())
+        model = markovify.Text.from_json(json_str=bz2.open(model_file, "rt").read())
     if prompt:
         generated = model.make_sentence_with_start(
             beginning=prompt, max_chars=output_size, test_output=False, strict=False

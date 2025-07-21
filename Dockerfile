@@ -1,41 +1,38 @@
-# syntax=docker/dockerfile:1
+# Use a Python image with uv pre-installed
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-FROM python:3.11-slim AS base
+# Install the project into `/app`
+WORKDIR /app
 
-LABEL org.opencontainers.image.description="A microservice to generate amusing (?) derby names using markovify."
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
 
-FROM base AS python-deps
+# Copy from the cache instead of linking since it's a mounted volume
+ENV UV_LINK_MODE=copy
 
+# Install the project's dependencies using the lockfile and settings
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --locked --no-install-project --no-dev
 
-# Install pipenv and compilation dependencies
-RUN pip install -U pipenv
-RUN apt-get update && apt-get install -y --no-install-recommends gcc git
+# Then, add the rest of the project source code and install it
+# Installing separately from its dependencies allows optimal layer caching
+COPY *.py /app
+COPY templates/ /app/templates/
+COPY model/ /app/model/
+COPY uv.lock /app/uv.lock
+COPY pyproject.toml /app/pyproject.toml
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev
 
-# Install python dependencies in /.venv
-COPY Pipfile .
-COPY Pipfile.lock .
-RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH"
 
+# Reset the entrypoint, don't invoke `uv`
+ENTRYPOINT []
 
-FROM base AS runtime
-
-# Copy virtual env from python-deps stage
-COPY --from=python-deps /.venv /.venv
-ENV PATH="/.venv/bin:$PATH"
-
-# Create and switch to a new user
-RUN useradd --create-home appuser
-WORKDIR /home/appuser
-USER appuser
-
-# Install application into container
-COPY . .
-
+# Run the flask app using gunicorn
+# Bind to all interfaces on port 5000
 EXPOSE 5000
-# EXPOSE 8000
-# CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
-CMD ["gunicorn","-b","0.0.0.0:5000","-w","4","app:app"]
-# ENTRYPOINT ["gunicorn","-b","0.0.0.0","-w","4","app:app"]
+CMD ["gunicorn", "app:app", "-b", "0.0.0.0:5000",'-w', '4', '--timeout', '120', '--keep-alive', '5']
