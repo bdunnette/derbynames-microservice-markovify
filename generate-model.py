@@ -8,17 +8,55 @@ Original file is located at
 """
 
 from pathlib import Path
+import bz2
+import argparse
+import random
 import markovify
 import requests
 
+# Constants
+
 MIN_STATE_SIZE = 2
 MAX_STATE_SIZE = 5
-NAMES_URL = "https://raw.githubusercontent.com/bdunnette/derby-name-scraper/main/derby_names_ascii.txt"
+NAMES_URL = "https://raw.githubusercontent.com/bdunnette/derby-name-scraper/refs/heads/main/data/derby_names_ascii.txt"
 MODEL_PATH = Path("model")
 
-names = requests.get(url=NAMES_URL).text
-
-name_set = set(names.split(sep="\n"))
+# Argument parsing
+parser = argparse.ArgumentParser(description="Generate Markov models for derby names.")
+parser.add_argument(
+    "-u", "--url", type=str, default=NAMES_URL, help="URL to fetch names from."
+)
+parser.add_argument(
+    "-p",
+    "--model-path",
+    type=Path,
+    default=MODEL_PATH,
+    help="Path to save the generated models.",
+)
+parser.add_argument(
+    "--min-state-size",
+    type=int,
+    default=MIN_STATE_SIZE,
+    help="Minimum state size for Markov model.",
+)
+parser.add_argument(
+    "--max-state-size",
+    type=int,
+    default=MAX_STATE_SIZE,
+    help="Maximum state size for Markov model.",
+)
+parser.add_argument(
+    "-m",
+    "--model-type",
+    type=str,
+    choices=["both", "words", "char"],
+    default="both",
+    help="Type of model to generate: 'both', 'words', or 'char'.",
+)
+parser.add_argument(
+    "-s", "--save-model", action="store_true", help="Flag to save the generated model."
+)
+args = parser.parse_args()
 
 
 class SentencesByChar(markovify.Text):
@@ -29,21 +67,78 @@ class SentencesByChar(markovify.Text):
         return "".join(words)
 
 
-for state_size in range(MIN_STATE_SIZE, MAX_STATE_SIZE + 1):
-    print(f"State Size: {state_size}")
+def generate_word_model(input_text, state_size):
+    """Generate a Markov model based on words."""
+    model = markovify.NewlineText(input_text, state_size=state_size, well_formed=False)
+    # Check if the model was created successfully
+    model_keys = [key for key in model.chain.model.keys() if "___BEGIN__" in key]
+    print(f"Model keys found: {len(model_keys)}")
+    if not model_keys:
+        raise ValueError(
+            "Failed to create a Markov model. Check the input text or state size."
+        )
+    return model.compile(inplace=True)
 
-    word_model = markovify.NewlineText(
-        input_text=names, state_size=state_size, well_formed=False
+
+def generate_char_model(input_text, state_size):
+    """Generate a Markov model based on characters."""
+    return SentencesByChar(input_text=input_text, state_size=state_size).compile(
+        inplace=True
     )
-    word_model.compile(inplace=True)
-    word_model_file = MODEL_PATH / f"word_{state_size}.json"
-    word_model_file.write_text(data=word_model.to_json())
-    for i in range(5):
-        print(word_model.make_sentence())
 
-    char_model = SentencesByChar(input_text=names, state_size=state_size)
-    char_model.compile(inplace=True)
-    char_model_file = MODEL_PATH / f"char_{state_size}.json"
-    char_model_file.write_text(data=char_model.to_json())
-    for i in range(5):
-        print(char_model.make_sentence())
+
+def generate_text(model, num_sentences=5):
+    """Generate text using the provided Markov model."""
+    generated = []
+    for _ in range(num_sentences):
+        sentence = model.make_sentence()
+        if sentence:
+            sentence_split = sentence.split("\n")
+            if len(sentence_split) > 1:
+                generated.extend(sentence_split)
+    return generated
+
+
+def generate_model(save_model=False, model_type="both", model_path=MODEL_PATH):
+    names = requests.get(url=args.url).text
+    name_set = list(set(names.split(sep="\n")))
+    names_shuffled = [
+        name.strip()
+        for name in random.sample(name_set, k=len(name_set))
+        if name.strip()
+    ]
+    names_shuffled_string = str("\n".join(names_shuffled))
+    print(f"Total unique names: {len(names_shuffled)}")
+
+    for state_size in range(MIN_STATE_SIZE, MAX_STATE_SIZE + 1):
+        print(f"State Size: {state_size}")
+
+        if model_type in ["both", "words"]:
+            word_model = generate_word_model(names_shuffled_string, state_size)
+            if save_model:
+                word_model_path = model_path / f"word_{state_size}.bz2"
+                with bz2.open(word_model_path, "wt") as f:
+                    f.write(word_model.to_json())
+                print(f"Word model saved to {word_model_path}")
+
+        if model_type in ["both", "char"]:
+            char_model = generate_char_model(names_shuffled_string, state_size)
+            generated = generate_text(char_model)
+            print("\n".join(generated))
+            if not generated:
+                print("No sentences generated. Check the input data or state size.")
+            elif save_model:
+                char_model_path = model_path / f"char_{state_size}.bz2"
+                with bz2.open(char_model_path, "wt") as f:
+                    f.write(char_model.to_json())
+                print(f"Char model saved to {char_model_path}")
+
+
+if __name__ == "__main__":
+    MODEL_PATH.mkdir(parents=True, exist_ok=True)
+    new_model = generate_model(
+        save_model=args.save_model,
+        model_type=args.model_type,
+        model_path=args.model_path,
+    )
+    print("Model generation complete.")
