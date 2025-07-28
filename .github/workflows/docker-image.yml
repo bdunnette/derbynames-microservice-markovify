@@ -38,7 +38,7 @@ jobs:
       # which are common architectures for Docker images. The `id` "qemu" allows the output of this step to be referenced in a subsequent step.
       - name: Set up QEMU
         id: qemu
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: linux/amd64,linux/arm64
 
