@@ -46,7 +46,7 @@ jobs:
       # The `id` "buildx" allows the output of this step to be referenced in a subsequent step. The `buildkitd-flags` parameter is set to `--allow-insecure-entitlement security.insecure` to allow insecure entitlements, which is necessary for some advanced features of BuildKit.
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
           buildkitd-flags: --allow-insecure-entitlement security.insecure
           
